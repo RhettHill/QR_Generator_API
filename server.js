@@ -11,6 +11,12 @@ app.use(express.json());
 const generateRoute = require('./routes/generate');
 
 app.use('/api/generate', generateRoute);
+app.use((req, res, next) => {
+  const plan = req.headers['x-rapidapi-plan']; // 'basic', 'pro', etc.
+  req.userPlan = plan || 'free'; // Fallback if missing
+  next();
+});
+
 
 
 app.get('/', (req, res) => {

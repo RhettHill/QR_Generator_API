@@ -14,47 +14,25 @@ const pool = new Pool({
   port: process.env.PGPORT,
 });
 
-// Middleware to validate API key and track usage
- async function validateApiKey(req, res, next) {
-  const key = req.header('x-api-key');
-  if (!key) return res.status(400).json({ error: 'Missing API key' });
-
-  try {
-    const result = await pool.query(
-      'SELECT * FROM api_keys WHERE key = $1 AND is_active = true',
-      [key]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid or inactive API key' });
-    }
-
-    req.apiUser = result.rows[0]; // optional
-
-    // Log usage
-    await pool.query(
-      'INSERT INTO usage_logs (api_key, endpoint, ip_address) VALUES ($1, $2, $3)',
-      [key, req.originalUrl, req.ip]
-    );
-
-    next();
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-}
 
 // Apply the middleware to all routes in this router
-router.use(validateApiKey);
+
 
 router.post('/', async (req, res) => {
-  const {
-    text,
-    size = 300,
-    darkColor = '#000000',
-    lightColor = '#ffffff',
-    format = 'png',
-  } = req.body;
+  
+const { data, size, foregroundColor, logoUrl } = req.body;
+  const plan = req.userPlan;
+
+  if (plan === 'free') {
+    if (size && size > 300) {
+      return res.status(403).json({ error: 'Custom sizes require a paid plan.' });
+    }
+    if (foregroundColor || logoUrl) {
+      return res.status(403).json({ error: 'Color/logo customization is a Pro feature.' });
+    }
+  }
+  
+  
 
   if (!text) {
     return res.status(400).json({ error: 'Missing required field: text' });
@@ -83,25 +61,6 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to generate QR code' });
-  }
-});
-
-router.post('/create-key', async (req, res) => {
-  const { email } = req.body; // optional user info
-
-  if (!email) return res.status(400).json({ error: 'Missing email' });
-
-  const newKey = generateApiKey();
-
-  try {
-    await pool.query(
-      'INSERT INTO api_keys (key, user_email) VALUES ($1, $2)',
-      [newKey, email]
-    );
-    res.json({ apiKey: newKey });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Could not create API key' });
   }
 });
 
