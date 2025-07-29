@@ -1,68 +1,27 @@
 const express = require('express');
-const QRCode = require('qrcode');
-const { Pool } = require('pg');
-require('dotenv').config();
-
 const router = express.Router();
-
-// PostgreSQL connection pool
-const pool = new Pool({
-  user: process.env.PGUSER,
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
-  port: process.env.PGPORT,
-});
-
-
-// Apply the middleware to all routes in this router
-
+const QRCode = require('qrcode');
 
 router.post('/', async (req, res) => {
-  
-const { data, size, foregroundColor, logoUrl } = req.body;
-  const plan = req.userPlan;
-
-  if (plan === 'free') {
-    if (size && size > 300) {
-      return res.status(403).json({ error: 'Custom sizes require a paid plan.' });
-    }
-    if (foregroundColor || logoUrl) {
-      return res.status(403).json({ error: 'Color/logo customization is a Pro feature.' });
-    }
-  }
-  
-  
+  const { text, format } = req.body;
 
   if (!text) {
-    return res.status(400).json({ error: 'Missing required field: text' });
+    return res.status(400).json({ error: 'Missing "text" field in request body' });
   }
-
-  const options = {
-    width: size,
-    color: {
-      dark: darkColor,
-      light: lightColor,
-    },
-  };
 
   try {
     if (format === 'base64') {
-      const dataUrl = await QRCode.toDataURL(text, options);
-      return res.json({ base64: dataUrl });
-    } else if (format === 'svg') {
-      const svg = await QRCode.toString(text, { type: 'svg', ...options });
-      res.setHeader('Content-Type', 'image/svg+xml');
-      return res.send(svg);
+      const dataUrl = await QRCode.toDataURL(text);
+      return res.json({ image: dataUrl });
     } else {
+      const buffer = await QRCode.toBuffer(text);
       res.setHeader('Content-Type', 'image/png');
-      QRCode.toFileStream(res, text, options);
+      return res.send(buffer);
     }
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to generate QR code' });
+    return res.status(500).json({ error: 'QR code generation failed' });
   }
 });
-
 
 module.exports = router;
