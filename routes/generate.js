@@ -4,7 +4,6 @@ const QRCode = require('qrcode');
 const sharp = require('sharp');
 const fetch = require('node-fetch');
 
-
 router.post('/', async (req, res) => {
   const {
     text,
@@ -16,53 +15,39 @@ router.post('/', async (req, res) => {
     logo
   } = req.body;
 
-const isProUser = req.header("X-RapidAPI-Plan")?.toLowerCase() === "pro";
-
-
   if (!text) {
     return res.status(400).json({ error: 'Missing "text" field in request body' });
   }
 
-  // Set options based on user plan
+  // Build options, use request params or fallback to defaults
   const options = {
     color: {
-      dark: isProUser && color ? color : '#000000',
-      light: isProUser && bgColor ? bgColor : '#FFFFFF',
+      dark: color || '#000000',
+      light: bgColor || '#FFFFFF',
     },
-    width: isProUser && width ? width : 256,
-    errorCorrectionLevel: isProUser && errorCorrectionLevel ? errorCorrectionLevel : 'M',
+    width: width || 256,
+    errorCorrectionLevel: errorCorrectionLevel || 'M',
   };
 
   try {
-    // Generate QR code as PNG buffer
     const qrBuffer = await QRCode.toBuffer(text, options);
 
     if (logo) {
-      if (!isProUser) {
-        return res.status(403).json({ error: "Logo embedding is only available to Pro users." });
-      }
-
-      // Load the QR code buffer into sharp
+      // No plan check here, allow logo embedding for all users
       const qrImage = sharp(qrBuffer);
 
-      // Load logo image (URL or base64)
       let logoBuffer;
-
       if (logo.startsWith('http')) {
-        // Fetch remote logo image
-        const fetch = require('node-fetch');
         const response = await fetch(logo);
         if (!response.ok) throw new Error('Failed to fetch logo image');
         logoBuffer = await response.buffer();
       } else if (logo.startsWith('data:image')) {
-        // Base64 encoded image
         const base64Data = logo.split(',')[1];
         logoBuffer = Buffer.from(base64Data, 'base64');
       } else {
         return res.status(400).json({ error: "Logo must be a URL or base64-encoded image." });
       }
 
-      // Resize logo to 20% of QR code width
       const qrMetadata = await qrImage.metadata();
       const logoSize = Math.floor(qrMetadata.width * 0.2);
 
@@ -70,7 +55,6 @@ const isProUser = req.header("X-RapidAPI-Plan")?.toLowerCase() === "pro";
         .resize(logoSize, logoSize, { fit: 'contain' })
         .toBuffer();
 
-      // Composite logo onto QR code, centered
       const composited = await qrImage
         .composite([{ input: resizedLogo, gravity: 'center' }])
         .png()
@@ -85,7 +69,7 @@ const isProUser = req.header("X-RapidAPI-Plan")?.toLowerCase() === "pro";
       return res.send(composited);
     }
 
-    // No logo case
+    // No logo
     switch (format) {
       case 'base64': {
         const dataUrl = await QRCode.toDataURL(text, options);
