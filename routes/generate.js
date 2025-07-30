@@ -16,26 +16,7 @@ router.post('/', async (req, res) => {
     logo
   } = req.body;
 
-  const isProUser = req.header("X-RapidAPI-Plan")?.toLowerCase() === "pro";
-  if (!text) {
-  return res.status(400).json({ error: 'Missing "text" field in request body' });
-}
-
-const attemptedProFeatures = [];
-
-if (!isProUser) {
-  if (color && color !== '#000000') attemptedProFeatures.push("color");
-  if (bgColor && bgColor !== '#FFFFFF') attemptedProFeatures.push("bgColor");
-  if (width && width !== 256) attemptedProFeatures.push("width");
-  if (errorCorrectionLevel && errorCorrectionLevel !== 'M') attemptedProFeatures.push("errorCorrectionLevel");
-  if (logo) attemptedProFeatures.push("logo");
-
-  if (attemptedProFeatures.length > 0) {
-    return res.status(403).json({
-      error: `You are on the Free plan. The following features require a Pro plan: ${attemptedProFeatures.join(', ')}.`
-    });
-  }
-}
+const isProUser = req.header("X-RapidAPI-Plan")?.toLowerCase() === "pro";
 
 
   if (!text) {
