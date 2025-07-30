@@ -17,6 +17,13 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  if (!req.headers['x-rapidapi-key']) {
+    return res.status(403).json({ error: 'Forbidden: missing RapidAPI key header' });
+  }
+  next();
+});
+
 
 
 app.get('/', (req, res) => {
